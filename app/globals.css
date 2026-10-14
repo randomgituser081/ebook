@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fdfdfd;
+  --foreground: #1a1a1a;
+  --brand: #a14f5b;
+  --brand-magenta: #a24e90;
+  --plum-deep: #3b1d30;
+  --heading: #722f58;
+  --heading-deep: #5b2a4a;
+  --glass: #ebe1e6;
+  --glass-soft: #f5eef2;
+  --academy-discount: #e8a33d;
+  --academy-discount-fg: #1a1a1a;
+  --surface: #fafafa;
+}
+
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-magenta: var(--brand-magenta);
+  --color-plum-deep: var(--plum-deep);
+  --color-heading: var(--heading);
+  --color-heading-deep: var(--heading-deep);
+  --color-glass: var(--glass);
+  --color-glass-soft: var(--glass-soft);
+  --color-surface: var(--surface);
+  --color-academy-discount: var(--academy-discount);
+  --color-academy-discount-fg: var(--academy-discount-fg);
+}
+
+::selection {
+  background: var(--brand);
+  color: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes orb-drift-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(24px, -18px) scale(1.08); }
+}
+
+@keyframes orb-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-20px, 16px) scale(1.06); }
+}
+
+.animate-orb-a { animation: orb-drift-a 10s ease-in-out infinite; }
+.animate-orb-b { animation: orb-drift-b 12s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-orb-a,
+  .animate-orb-b {
+    animation-duration: 2s;
+  }
+}
