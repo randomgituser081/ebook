@@ -10,6 +10,12 @@ const g = globalThis as Globals;
 
 const MIGRATION_LOCK_KEY = 727_001;
 
+// All tables live in their own schema, so the bookstore can safely share a database with other apps.
+const SCHEMA = process.env.DATABASE_SCHEMA || "bookstore";
+if (!/^[a-z_][a-z0-9_]*$/.test(SCHEMA)) {
+  throw new Error(`DATABASE_SCHEMA "${SCHEMA}" is not a valid schema name (lowercase letters, digits, underscores).`);
+}
+
 const MIGRATIONS: Array<{ id: string; sql: string }> = [
   {
     id: "001_initial",
@@ -66,6 +72,10 @@ function createPool(): Pool {
     ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
   });
   pool.on("error", (error) => console.error("[db] idle client error:", error.message));
+  // Queued ahead of any later query on that connection, so every query sees the bookstore schema.
+  pool.on("connect", (client) => {
+    client.query(`SET search_path TO "${SCHEMA}"`).catch((error) => console.error("[db] set search_path:", error.message));
+  });
   return pool;
 }
 
@@ -77,6 +87,7 @@ async function migrate(): Promise<void> {
   const client = await rawPool().connect();
   try {
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
+    await client.query(`CREATE SCHEMA IF NOT EXISTS "${SCHEMA}"`);
     await client.query(
       "CREATE TABLE IF NOT EXISTS schema_migrations (id text PRIMARY KEY, applied_at bigint NOT NULL)",
     );

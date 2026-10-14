@@ -15,7 +15,8 @@ delivered by email (Lenhub), with an admin to post books and see sales. Data liv
 
 ## Data (Postgres)
 
-Set `DATABASE_URL`. Tables are created automatically on first start (`lib/db.ts`):
+Set `DATABASE_URL`. Tables are created automatically on first start (`lib/db.ts`), inside their own
+Postgres schema (`DATABASE_SCHEMA`, default `bookstore`) so they never mix with other apps' tables:
 
 | Table | Holds |
 | --- | --- |
