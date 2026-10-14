@@ -69,13 +69,16 @@ function createPool(): Pool {
   const pool = new Pool({
     connectionString,
     max: Number(process.env.DATABASE_POOL_MAX) || 5,
+    // The database is on another host: keep sockets alive and recycle idle ones before
+    // a firewall/NAT silently drops them.
+    keepAlive: true,
+    idleTimeoutMillis: 20_000,
+    connectionTimeoutMillis: 10_000,
     ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+    // Every connection starts in the bookstore schema (a startup parameter, so no extra query).
+    options: `-c search_path=${SCHEMA}`,
   });
   pool.on("error", (error) => console.error("[db] idle client error:", error.message));
-  // Queued ahead of any later query on that connection, so every query sees the bookstore schema.
-  pool.on("connect", (client) => {
-    client.query(`SET search_path TO "${SCHEMA}"`).catch((error) => console.error("[db] set search_path:", error.message));
-  });
   return pool;
 }
 
@@ -166,13 +169,29 @@ function ready(): Promise<void> {
   return g.__bookstoreReady;
 }
 
+// A dropped connection (not a bad query) — safe to retry once on a fresh connection.
+function isConnectionError(error: unknown): boolean {
+  const e = error as { code?: string; message?: string };
+  return (
+    ["ECONNRESET", "EPIPE", "ETIMEDOUT", "ECONNREFUSED", "57P01", "08000", "08003", "08006"].includes(e?.code ?? "") ||
+    /Connection terminated|connection.*closed/i.test(e?.message ?? "")
+  );
+}
+
 export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: unknown[] = [],
 ): Promise<{ rows: T[]; rowCount: number }> {
   await ready();
-  const result = await rawPool().query<T>(text, params);
-  return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+  try {
+    const result = await rawPool().query<T>(text, params);
+    return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+  } catch (error) {
+    if (!isConnectionError(error)) throw error;
+    console.warn("[db] connection dropped, retrying once:", (error as Error).message);
+    const result = await rawPool().query<T>(text, params);
+    return { rows: result.rows, rowCount: result.rowCount ?? 0 };
+  }
 }
 
 export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {

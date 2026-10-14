@@ -3,7 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Clock, Download, AlertCircle } from "lucide-react";
+import { motion } from "framer-motion";
+import { AlertCircle, Clock, Download, Mail } from "lucide-react";
+import { BookLoader } from "@/component/BookLoader";
+import { SuccessBurst } from "@/component/SuccessBurst";
 
 type Status = "checking" | "paid" | "pending" | "invalid";
 
@@ -23,14 +26,16 @@ function ThankYouContent() {
   const [ref] = useState<string | null>(
     () => searchParams.get("ref") ?? searchParams.get("orderReference") ?? readStoredRef(),
   );
-  const [status, setStatus] = useState<Status>(ref ? "checking" : "invalid");
-  const [downloadUrl, setDownloadUrl] = useState("");
+  // Development only: /thank-you?preview=paid|pending|checking|invalid shows that state.
+  const preview = process.env.NODE_ENV !== "production" ? (searchParams.get("preview") as Status | null) : null;
+  const [status, setStatus] = useState<Status>(preview ?? (ref ? "checking" : "invalid"));
+  const [downloadUrl, setDownloadUrl] = useState(preview ? "#" : "");
   const [emailedTo, setEmailedTo] = useState<string | null>(null);
-  const [bookTitle, setBookTitle] = useState("");
+  const [bookTitle, setBookTitle] = useState(preview ? "Test Book" : "");
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!ref || status !== "checking") return;
+    if (preview || !ref || status !== "checking") return;
 
     let cancelled = false;
     const timer = setTimeout(
@@ -62,7 +67,7 @@ function ThankYouContent() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [ref, status, attempt]);
+  }, [preview, ref, status, attempt]);
 
   const retry = () => {
     setStatus("checking");
@@ -70,25 +75,31 @@ function ThankYouContent() {
   };
 
   return (
-    <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl sm:p-10">
+    <motion.div
+      initial={{ opacity: 0, y: 30, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="relative w-full max-w-lg rounded-[2rem] bg-white p-7 text-center shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7)] sm:p-10"
+    >
       {status === "paid" && (
         <>
-          <CheckCircle2 className="mx-auto size-16 text-emerald-500" />
-          <h1 className="mt-5 text-3xl font-black text-heading-deep">Payment confirmed!</h1>
+          <SuccessBurst />
+          <h1 className="mt-6 text-3xl font-black text-heading-deep">Payment confirmed!</h1>
           <p className="mt-3 text-base text-gray-600">
             Thank you for buying {bookTitle ? <span className="font-semibold">{bookTitle}</span> : "your book"}. Your
             copy is ready.
           </p>
           <a
             href={downloadUrl}
-            className="mt-8 inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#995982] text-base font-bold text-white transition hover:bg-[#8e427d]"
+            className="group mt-8 inline-flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-heading-deep text-base font-bold text-white shadow-lg shadow-heading-deep/30 transition hover:-translate-y-0.5 hover:bg-[#8e427d]"
           >
-            <Download className="size-5" /> Download your ebook (PDF)
+            <Download className="size-5 transition-transform group-hover:translate-y-0.5" /> Download your ebook (PDF)
           </a>
           {emailedTo && (
-            <p className="mt-5 rounded-xl bg-glass-soft p-3 text-sm text-gray-700">
-              We&apos;ve also emailed your download link to <span className="font-semibold">{emailedTo}</span>. Check
-              your spam folder if you don&apos;t see it.
+            <p className="mt-5 flex items-start gap-2.5 rounded-xl bg-glass-soft p-3.5 text-left text-sm text-gray-700">
+              <Mail className="mt-0.5 size-4 shrink-0 text-brand" />
+              <span>We&apos;ve also emailed your download link to <span className="font-semibold">{emailedTo}</span>. Check
+              your spam folder if you don&apos;t see it.</span>
             </p>
           )}
           <p className="mt-4 text-xs text-gray-500">
@@ -102,8 +113,8 @@ function ThankYouContent() {
 
       {status === "checking" && (
         <>
-          <span className="mx-auto block h-14 w-14 animate-spin rounded-full border-4 border-glass border-t-brand" />
-          <h1 className="mt-6 text-2xl font-black text-heading-deep">Confirming your payment…</h1>
+          <BookLoader label="Checking with Nomba" className="text-heading-deep" />
+          <h1 className="mt-6 text-2xl font-black text-heading-deep">Confirming your payment</h1>
           <p className="mt-3 text-base text-gray-600">
             This usually takes a few seconds. Bank transfers can take a minute or two — please keep this page open.
           </p>
@@ -122,7 +133,7 @@ function ThankYouContent() {
             <button
               type="button"
               onClick={retry}
-              className="h-12 rounded-2xl bg-[#995982] font-bold text-white transition hover:bg-[#8e427d]"
+              className="h-12 rounded-2xl bg-heading-deep font-bold text-white transition hover:bg-[#8e427d]"
             >
               Check again
             </button>
@@ -142,19 +153,21 @@ function ThankYouContent() {
           </p>
           <Link
             href="/"
-            className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#995982] font-bold text-white"
+            className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-heading-deep font-bold text-white"
           >
             Back to the bookstore
           </Link>
         </>
       )}
-    </div>
+    </motion.div>
   );
 }
 
 export default function ThankYouPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-plum-deep px-4 py-16">
+    <div className="grain relative isolate flex min-h-screen items-center justify-center overflow-hidden bg-[#1c0b16] px-4 py-16">
+      <div className="animate-orb-a absolute -left-32 top-0 -z-10 h-[30rem] w-[30rem] rounded-full bg-brand-magenta/30 blur-[110px]" />
+      <div className="animate-orb-b absolute -right-24 bottom-0 -z-10 h-[26rem] w-[26rem] rounded-full bg-academy-discount/20 blur-[110px]" />
       <Suspense fallback={null}>
         <ThankYouContent />
       </Suspense>

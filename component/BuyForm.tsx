@@ -41,7 +41,7 @@ export function BuyForm({ bookId, priceNaira }: { bookId: string; priceNaira: nu
   };
 
   const inputClass =
-    "h-12 w-full rounded-xl border border-glass bg-white px-4 text-base text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/20";
+    "h-13 w-full rounded-xl border border-glass bg-[color:var(--surface)] px-4 text-base text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-brand focus:ring-2 focus:ring-brand/20";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -94,7 +94,7 @@ export function BuyForm({ bookId, priceNaira }: { bookId: string; priceNaira: nu
       <button
         type="submit"
         disabled={isProcessing}
-        className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#0C0C0C] text-white transition hover:bg-[#1a1a1a] disabled:cursor-not-allowed disabled:opacity-60"
+        className="group relative flex h-14 w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-[#0C0C0C] text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-[#1a1a1a] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isProcessing ? (
           <>
@@ -103,6 +103,7 @@ export function BuyForm({ bookId, priceNaira }: { bookId: string; priceNaira: nu
           </>
         ) : (
           <>
+            <span aria-hidden className="absolute inset-y-0 -left-1/3 w-1/3 -skew-x-12 bg-white/15 transition-transform duration-700 group-hover:translate-x-[420%]" />
             <Lock className="size-5 text-white/70" />
             <span className="text-base font-bold">Pay {formatNaira(priceNaira)} with Nomba</span>
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />

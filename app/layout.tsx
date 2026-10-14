@@ -32,8 +32,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="scroll-smooth antialiased">
+    <html lang="en" className="scroll-smooth antialiased" suppressHydrationWarning>
       <body className={`${lato.className} min-h-screen bg-white text-gray-900 selection:bg-[#A14F5B] selection:text-white`}>
+        <noscript>
+          {/* Without JS, scroll-reveal content would stay hidden — show it. */}
+          <style>{`[style*="opacity:0"]{opacity:1!important;transform:none!important;filter:none!important}`}</style>
+        </noscript>
         {children}
       </body>
     </html>
