@@ -229,7 +229,7 @@ html {
    While the first-visit splash is playing, they wait for it to lift.
 --------------------------------------------------------------------------- */
 [data-splash="playing"] {
-  --splash-offset: 2.3s;
+  --splash-offset: 2.9s;
 }
 .splash-screen {
   --splash-offset: 0s;
@@ -259,17 +259,165 @@ html {
   animation: book-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: calc(var(--d, 0.2s) + var(--splash-offset, 0s));
 }
-@keyframes splash-progress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-.splash-progress {
-  transform-origin: left;
-  animation: splash-progress 2.6s ease-in-out both;
-}
 @media (prefers-reduced-motion: reduce) {
   .rise, .word-rise, .book-in {
     animation-duration: 0.01s;
     animation-delay: 0s;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Identity splash: percentage counter + a book that opens and turns its pages.
+   All CSS, so it runs from first paint. One timeline: counter 0 → 100 in 2.4s.
+--------------------------------------------------------------------------- */
+@property --sp-pct {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 0;
+}
+@keyframes sp-count {
+  from { --sp-pct: 0; }
+  to { --sp-pct: 100; }
+}
+.splash-pct {
+  counter-reset: sp var(--sp-pct);
+  animation: sp-count 2.4s cubic-bezier(0.33, 0.8, 0.6, 1) both;
+}
+.splash-pct::before {
+  content: counter(sp) "%";
+}
+
+.sb {
+  --w: 112px;
+  --h: 144px;
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  perspective: 900px;
+  margin-bottom: 1.1rem;
+}
+@media (min-width: 640px) {
+  .sb { --w: 138px; --h: 176px; margin-bottom: 1.5rem; }
+}
+.sb__shadow {
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  bottom: -14px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(91, 42, 74, 0.28), transparent 70%);
+  animation: sb-shadow 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+.sb__stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: sb-center 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+/* keeps the open spread centred on the screen as the cover swings left */
+@keyframes sb-center {
+  from { transform: translateX(0) rotateX(14deg); }
+  to { transform: translateX(50%) rotateX(7deg); }
+}
+@keyframes sb-shadow {
+  from { transform: translateX(0) scaleX(0.7); }
+  to { transform: translateX(0) scaleX(1.5); }
+}
+.sb__back {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px 9px 9px 2px;
+  background: #5b2a4a;
+  box-shadow: 0 16px 28px -14px rgba(91, 42, 74, 0.55);
+}
+.sb__page,
+.sb__leaf {
+  position: absolute;
+  inset: 3px 3px 3px 0;
+  border-radius: 0 6px 6px 0;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 10px, rgba(91, 42, 74, 0.16) 10px 11px),
+    #f7eff4;
+  border: 1px solid #dcc9d6;
+  border-left: 0;
+  box-shadow: 2px 0 0 #ebdde5, 4px 0 0 #dfcdd8;
+}
+.sb__ribbon {
+  position: absolute;
+  right: 18%;
+  top: 0;
+  width: 9px;
+  height: 38%;
+  background: #e8a33d;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+}
+.sb__leaf {
+  transform-origin: left center;
+  animation: sb-turn 0.7s cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.sb__leaf--1 { animation-delay: 0.7s; background-color: #f7eff4; }
+.sb__leaf--2 { animation-delay: 0.95s; background-color: #f2e8ee; }
+.sb__leaf--3 { animation-delay: 1.2s; background-color: #f7eff4; }
+.sb__leaf--4 { animation-delay: 1.45s; background-color: #f2e8ee; }
+.sb__leaf--5 { animation-delay: 1.7s; background-color: #f7eff4; }
+@keyframes sb-turn {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-172deg); }
+}
+.sb__cover {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  animation: sb-open 0.95s cubic-bezier(0.65, 0, 0.35, 1) 0.2s both;
+}
+@keyframes sb-open {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-176deg); }
+}
+.sb__cover-front,
+.sb__cover-inside {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.sb__cover-front {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px 9px 9px 2px;
+  background: linear-gradient(135deg, #8e427d 0%, #a24e90 55%, #a14f5b 100%);
+  box-shadow: inset 5px 0 8px -4px rgba(0, 0, 0, 0.4);
+}
+.sb__cover-front b {
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+}
+.sb__cover-front i {
+  display: block;
+  width: 2.4rem;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: #e8a33d;
+}
+.sb__cover-inside {
+  transform: rotateY(180deg);
+  border-radius: 9px 2px 2px 9px;
+  background: #ecdfe7;
+  border: 3px solid #5b2a4a;
+  border-right-width: 0;
+  box-shadow: inset -6px 0 10px -6px rgba(91, 42, 74, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-pct { animation-duration: 0.6s; }
+  .sb__stage,
+  .sb__shadow,
+  .sb__cover,
+  .sb__leaf { animation: none; }
 }

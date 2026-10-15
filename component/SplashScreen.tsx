@@ -1,30 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 const STORAGE_KEY = "mkx-splash";
-const TOTAL_MS = 2600; // intended length on a fast device, measured from page start
-const OPENING_MS = 1900; // the opening sequence always gets at least this long once JS is ready
-const WORD = "Bookstore";
+// If the counter animation can't be observed for some reason, never hold the page longer than this.
+const FALLBACK_MS = 4500;
 
 /**
- * First-visit intro: a closed book (visible from first paint, pure CSS) opens, flips
- * its pages and hands over to the page. Shown once per browser session — the inline
- * script in the store layout hides it before first paint for returning visitors.
- * Tap, click or any key skips it.
+ * Maekandex identity splash — the same white screen, logo and climbing percentage as the
+ * Maekandex website — with a book above the logo that opens and turns its pages as the
+ * number rises.
+ *
+ * The book and the counter are pure CSS (see globals.css), so they start at first paint,
+ * before JavaScript loads. JS only waits for the counter to reach 100% and then lifts the
+ * screen. Shown once per browser session; a tap or key press skips it.
  */
 export function SplashScreen() {
   const reduce = useReducedMotion();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
-  const [opening, setOpening] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [exiting, setExiting] = useState(false);
 
   const finish = useCallback(() => {
-    setVisible(false);
-    // Lets the hero's CSS entrance (which waits for the splash) start right away.
-    document.documentElement.dataset.splash = "done";
+    setExiting(true);
+    window.setTimeout(() => {
+      setVisible(false);
+      // Lets the page's own entrance (held while the splash plays) carry on.
+      document.documentElement.dataset.splash = "done";
+    }, 300);
   }, []);
 
   useEffect(() => {
@@ -35,19 +40,26 @@ export function SplashScreen() {
     try {
       sessionStorage.setItem(STORAGE_KEY, "1");
     } catch {}
-    // performance.now() ≈ time since the page started loading. On a slow device the
-    // opening plays at double speed so the wait doesn't grow.
-    const late = performance.now() > 1800;
-    setSpeed(late ? 2 : 1);
-    setOpening(true);
-    const remaining = reduce ? 600 : late ? OPENING_MS / 2 : Math.max(TOTAL_MS - performance.now(), OPENING_MS);
-    const timer = window.setTimeout(finish, remaining);
+
+    let timer = window.setTimeout(finish, FALLBACK_MS);
+    const counter = rootRef.current?.querySelector(".splash-pct");
+    const animations = counter?.getAnimations?.() ?? [];
+    if (animations.length) {
+      // Finish as soon as the counter hits 100% (immediately if it already has, on a slow phone).
+      Promise.all(animations.map((a) => a.finished))
+        .then(() => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(finish, 250);
+        })
+        .catch(() => undefined);
+    }
+
     window.addEventListener("keydown", finish, { once: true });
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener("keydown", finish);
     };
-  }, [finish, reduce]);
+  }, [finish]);
 
   useEffect(() => {
     document.documentElement.style.overflow = visible ? "hidden" : "";
@@ -60,106 +72,63 @@ export function SplashScreen() {
     <AnimatePresence>
       {visible && (
         <motion.div
+          ref={rootRef}
           key="splash"
           role="status"
+          aria-busy="true"
+          aria-live="polite"
           aria-label="Loading Maekandex Bookstore"
           onClick={finish}
-          className="splash-screen grain fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,#5b2a4a_0%,#2a1222_55%,#160810_100%)]"
-          exit={reduce ? { opacity: 0 } : { clipPath: "inset(0 0 100% 0)" }}
+          className="splash-screen fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center bg-white"
           initial={false}
-          style={{ clipPath: "inset(0 0 0% 0)" }}
-          transition={{ duration: reduce ? 0.3 : 0.75, ease: [0.76, 0, 0.24, 1] }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduce ? 0.25 : 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div aria-hidden className="animate-orb-a absolute h-[60vmax] w-[60vmax] rounded-full bg-brand-magenta/25 blur-[120px]" />
-
-          <div className="rise" style={{ "--d": "0.05s", "--rise-y": "50px" } as CSSProperties}>
-            <OpeningBook open={opening && !reduce} speed={speed} />
-          </div>
-
-          {/* wordmark */}
-          <div className="rise relative mt-10 flex flex-col items-center" style={{ "--d": "0.3s", "--rise-y": "12px" } as CSSProperties}>
+          <div
+            className={`flex flex-col items-center transition-all duration-300 ease-out ${
+              exiting ? "-translate-y-2 scale-[0.98] opacity-0" : ""
+            }`}
+          >
+            <SplashBook />
             <Image
               src="/branding/company_logo.png"
-              alt="Maekandex"
-              width={180}
-              height={48}
+              alt="Maekandex Communications Limited"
+              width={351}
+              height={86}
               priority
-              className="h-8 w-auto brightness-0 invert sm:h-10"
+              className="h-auto w-55 object-contain sm:w-70 md:w-80"
             />
-            <div className="mt-3 flex overflow-hidden text-sm font-bold uppercase tracking-[0.45em] text-academy-discount sm:text-base">
-              {WORD.split("").map((ch, i) => (
-                <span key={i} className="word-rise" style={{ "--d": `${0.5 + i * 0.045}s` } as CSSProperties}>
-                  {ch}
-                </span>
-              ))}
-            </div>
+            <p className="mt-1 text-lg font-semibold tracking-wide tabular-nums text-[#0a0f2b] sm:text-base">
+              <span className="splash-pct" aria-hidden />
+            </p>
           </div>
-
-          {/* progress line */}
-          <div className="absolute bottom-[12vh] h-px w-40 overflow-hidden bg-white/15 sm:w-56">
-            <div className="splash-progress h-full bg-gradient-to-r from-academy-discount to-white" />
-          </div>
-          <span className="absolute bottom-[7vh] text-[11px] uppercase tracking-[0.3em] text-white/35">Tap to skip</span>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
-/** A closed book that swings its cover open and flips three pages once `open` is set. */
-function OpeningBook({ open, speed = 1 }: { open: boolean; speed?: number }) {
-  const t = (seconds: number) => seconds / speed;
-  const pageFace =
-    "absolute inset-0 rounded-r-md bg-[#fbf7f9] bg-[repeating-linear-gradient(180deg,transparent_0_9px,rgba(91,42,74,0.08)_9px_10px)]";
-  const turn = [0.65, 0, 0.35, 1] as const;
-
+/** A closed book that swings open and turns five pages — CSS only, styled by `.sb*` in globals.css. */
+function SplashBook() {
   return (
-    <div className="relative h-[150px] w-[112px] sm:h-[190px] sm:w-[142px]" style={{ perspective: 1100 }}>
-      <motion.div
-        className="relative h-full w-full"
-        style={{ transformStyle: "preserve-3d" }}
-        initial={{ rotateX: 16, x: "0%" }}
-        animate={open ? { rotateX: 8, x: "50%" } : undefined}
-        transition={{ delay: t(0.1), duration: t(0.9), ease: [0.22, 1, 0.36, 1] }}
-      >
-        {/* back cover + the right-hand page that stays put */}
-        <div className="absolute inset-0 rounded-r-md bg-[#2a1222] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.7)]" />
-        <div className={`${pageFace} inset-[3px] shadow-inner`}>
-          <div className="absolute right-[18%] top-0 h-[38%] w-2.5 bg-academy-discount [clip-path:polygon(0_0,100%_0,100%_100%,50%_85%,0_100%)]" />
+    <div className="sb" aria-hidden>
+      <div className="sb__shadow" />
+      <div className="sb__stage">
+        <div className="sb__back" />
+        <div className="sb__page">
+          <span className="sb__ribbon" />
         </div>
-
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="absolute inset-[3px] origin-left"
-            style={{ transformStyle: "preserve-3d" }}
-            initial={{ rotateY: 0 }}
-            animate={open ? { rotateY: -172 + i * 4 } : undefined}
-            transition={{ delay: t(0.5 + i * 0.16), duration: t(0.85), ease: turn }}
-          >
-            <div className={pageFace} style={{ filter: `brightness(${1 - i * 0.03})` }} />
-          </motion.div>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <div key={n} className={`sb__leaf sb__leaf--${n}`} />
         ))}
-
-        {/* front cover */}
-        <motion.div
-          className="absolute inset-0 origin-left"
-          style={{ transformStyle: "preserve-3d" }}
-          initial={{ rotateY: 0 }}
-          animate={open ? { rotateY: -176 } : undefined}
-          transition={{ delay: t(0.15), duration: t(1), ease: turn }}
-        >
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-r-md bg-gradient-to-br from-[#8e427d] via-[#a24e90] to-[#a14f5b] shadow-[inset_6px_0_10px_-4px_rgba(0,0,0,0.45)]"
-            style={{ backfaceVisibility: "hidden" }}
-          >
-            <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
-            <span className="text-3xl font-black text-white sm:text-4xl">M</span>
-            <span className="mt-1 h-0.5 w-8 rounded-full bg-academy-discount" />
+        <div className="sb__cover">
+          <div className="sb__cover-front">
+            <b>M</b>
+            <i />
           </div>
-          <div className="absolute inset-0 rounded-l-md bg-[#efe3ea]" style={{ transform: "rotateY(180deg)", backfaceVisibility: "hidden" }} />
-        </motion.div>
-      </motion.div>
+          <div className="sb__cover-inside" />
+        </div>
+      </div>
     </div>
   );
 }
