@@ -168,7 +168,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
           </div>
 
           <div className="order-1 mx-auto w-[58%] max-w-[360px] sm:w-[42%] lg:order-2 lg:w-full">
-            <TiltBook book={book} thickness={32} />
+            <TiltBook book={book} thickness={32} coverWidth={720} />
           </div>
         </div>
       </section>
@@ -248,7 +248,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
             <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">Get your copy today</h2>
             <div className="mt-8 flex items-center gap-5 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur">
               <div className="book3d-scene w-16 shrink-0">
-                <Book3D book={book} thickness={10} style={{ transform: "rotateY(-24deg)" }} />
+                <Book3D book={book} thickness={10} coverWidth={160} style={{ transform: "rotateY(-24deg)" }} />
               </div>
               <div className="min-w-0">
                 <p className="truncate font-bold text-white">{book.title}</p>

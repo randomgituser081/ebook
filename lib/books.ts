@@ -70,20 +70,43 @@ function toBook(row: BookRow): Book {
   };
 }
 
+// The catalogue is tiny and changes rarely, but every page view needs it — and the database is
+// on another server. So it's kept in memory: served instantly, refreshed in the background once
+// it is a minute old, and reloaded immediately whenever the admin saves a book (this process).
+const CATALOGUE_TTL_MS = 60_000;
+let catalogue: { at: number; books: Book[] } | null = null;
+let loading: Promise<Book[]> | null = null;
+
+function loadCatalogue(): Promise<Book[]> {
+  loading ??= query<BookRow>(`${SELECT_BOOK} ORDER BY b.created_at DESC`)
+    .then(({ rows }) => {
+      const books = rows.map(toBook);
+      catalogue = { at: Date.now(), books };
+      return books;
+    })
+    .finally(() => {
+      loading = null;
+    });
+  return loading;
+}
+
+async function allBooks(): Promise<Book[]> {
+  if (!catalogue) return loadCatalogue(); // first request after start: wait for it
+  if (Date.now() - catalogue.at > CATALOGUE_TTL_MS) void loadCatalogue().catch(() => undefined); // refresh behind the scenes
+  return catalogue.books;
+}
+
 export async function listBooks(opts: { publishedOnly?: boolean } = {}): Promise<Book[]> {
-  const where = opts.publishedOnly ? "WHERE b.published" : "";
-  const { rows } = await query<BookRow>(`${SELECT_BOOK} ${where} ORDER BY b.created_at DESC`);
-  return rows.map(toBook);
+  const books = await allBooks();
+  return opts.publishedOnly ? books.filter((b) => b.published) : books;
 }
 
 export async function getBook(id: string): Promise<Book | undefined> {
-  const { rows } = await query<BookRow>(`${SELECT_BOOK} WHERE b.id = $1`, [id]);
-  return rows[0] && toBook(rows[0]);
+  return (await allBooks()).find((b) => b.id === id);
 }
 
 export async function getBookBySlug(slug: string): Promise<Book | undefined> {
-  const { rows } = await query<BookRow>(`${SELECT_BOOK} WHERE b.slug = $1`, [slug]);
-  return rows[0] && toBook(rows[0]);
+  return (await allBooks()).find((b) => b.slug === slug);
 }
 
 // ---- Files ------------------------------------------------------------------
@@ -171,11 +194,12 @@ export async function createBook(input: BookInput, files: BookFiles & { pdf: Buf
     await saveFiles(client, id, files);
   });
 
+  await loadCatalogue();
   return (await getBook(id))!;
 }
 
 export async function updateBook(id: string, input: BookInput, files: BookFiles = {}): Promise<Book | null> {
-  if (!(await getBook(id))) return null;
+  if (!(await loadCatalogue()).some((b) => b.id === id)) return null;
   const slug = await uniqueSlug(input.title, id);
 
   await withTransaction(async (client) => {
@@ -201,5 +225,6 @@ export async function updateBook(id: string, input: BookInput, files: BookFiles 
     await saveFiles(client, id, files);
   });
 
+  await loadCatalogue();
   return (await getBook(id)) ?? null;
 }

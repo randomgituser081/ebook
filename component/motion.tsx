@@ -1,69 +1,40 @@
 "use client";
 
-import { useRef, type ReactNode, type PointerEvent } from "react";
-import {
-  MotionConfig,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-} from "framer-motion";
+import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
-export const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+/**
+ * Scroll-reveal without a library. Content is visible in the server-rendered HTML; after
+ * hydration, only blocks that start BELOW the fold are marked data-reveal="hidden" and are
+ * un-hidden (with a CSS transition) as they scroll into view. Blocks already on screen are
+ * left alone, so there is never a flash and never a blank page while scripts load.
+ */
+export function useReveal<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (el.getBoundingClientRect().top < window.innerHeight * 0.95) return;
 
-/** Site-wide motion defaults. Respects the OS "reduce motion" setting. */
-export function MotionProvider({ children }: { children: ReactNode }) {
-  return (
-    <MotionConfig reducedMotion="user" transition={{ duration: 0.6, ease: EASE_OUT }}>
-      {children}
-    </MotionConfig>
-  );
-}
-
-/** Children animate in one after another when scrolled into view. */
-export function Stagger({
-  children,
-  className,
-  gap = 0.08,
-  delay = 0,
-}: {
-  children: ReactNode;
-  className?: string;
-  gap?: number;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      className={className}
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: "-8% 0px" }}
-      variants={{ hidden: {}, show: { transition: { staggerChildren: gap, delayChildren: delay } } }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <motion.div
-      className={className}
-      variants={{
-        hidden: { opacity: 0, y: 26, filter: "blur(6px)" },
-        show: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.7, ease: EASE_OUT } },
-      }}
-    >
-      {children}
-    </motion.div>
-  );
+    el.dataset.reveal = "hidden";
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          delete el.dataset.reveal;
+          io.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return ref;
 }
 
 /** Fades/slides a block in when it scrolls into view. */
 export function Reveal({
   children,
-  className,
+  className = "",
   delay = 0,
   y = 28,
 }: {
@@ -72,51 +43,98 @@ export function Reveal({
   delay?: number;
   y?: number;
 }) {
+  const ref = useReveal<HTMLDivElement>();
   return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, y }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-8% 0px" }}
-      transition={{ duration: 0.7, delay, ease: EASE_OUT }}
-    >
+    <div ref={ref} className={`reveal ${className}`} style={{ "--d": `${delay}s`, "--ry": `${y}px` } as CSSProperties}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
-/** Pulls its child gently toward the pointer (desktop only). */
-export function Magnetic({ children, className, strength = 0.25 }: { children: ReactNode; className?: string; strength?: number }) {
+/** Direct children (wrap each in StaggerItem) animate in one after another. */
+export function Stagger({
+  children,
+  className = "",
+  gap = 0.08,
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  gap?: number;
+  delay?: number;
+}) {
+  const ref = useReveal<HTMLDivElement>();
+  return (
+    <div ref={ref} className={`stagger ${className}`} style={{ "--g": `${gap}s`, "--d": `${delay}s` } as CSSProperties}>
+      {children}
+    </div>
+  );
+}
+
+export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={className}>{children}</div>;
+}
+
+/** Pulls its child gently toward the mouse pointer (desktop only). */
+export function Magnetic({
+  children,
+  className = "",
+  strength = 0.25,
+}: {
+  children: ReactNode;
+  className?: string;
+  strength?: number;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const x = useSpring(useMotionValue(0), { stiffness: 220, damping: 16 });
-  const y = useSpring(useMotionValue(0), { stiffness: 220, damping: 16 });
 
   const onMove = (e: PointerEvent) => {
     if (e.pointerType !== "mouse" || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    x.set((e.clientX - (r.left + r.width / 2)) * strength);
-    y.set((e.clientY - (r.top + r.height / 2)) * strength);
+    const dx = (e.clientX - (r.left + r.width / 2)) * strength;
+    const dy = (e.clientY - (r.top + r.height / 2)) * strength;
+    ref.current.style.transform = `translate(${dx}px, ${dy}px)`;
   };
   const reset = () => {
-    x.set(0);
-    y.set(0);
+    if (ref.current) ref.current.style.transform = "";
   };
 
   return (
-    <motion.div ref={ref} style={{ x, y }} onPointerMove={onMove} onPointerLeave={reset} className={className}>
+    <div ref={ref} onPointerMove={onMove} onPointerLeave={reset} className={`magnetic ${className}`}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
 /** Thin reading-progress bar pinned to the top of the viewport. */
 export function ScrollProgress() {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 140, damping: 24, restDelta: 0.001 });
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+      if (ref.current) ref.current.style.transform = `scaleX(${progress})`;
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
-    <motion.div
+    <div
+      ref={ref}
       aria-hidden
-      style={{ scaleX }}
+      style={{ transform: "scaleX(0)" }}
       className="fixed inset-x-0 top-0 z-[60] h-[3px] origin-left bg-gradient-to-r from-academy-discount via-brand-magenta to-brand"
     />
   );

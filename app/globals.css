@@ -198,11 +198,24 @@ html {
 [data-splash="seen"] .splash-screen {
   display: none;
 }
+/* The screen lifts on its own timer, so a slow phone never waits for JavaScript to hide it. */
 .splash-screen {
-  animation: splash-failsafe 0s linear 6s forwards;
+  animation: splash-out 0.4s cubic-bezier(0.16, 1, 0.3, 1) 2.2s both;
 }
-@keyframes splash-failsafe {
-  to { visibility: hidden; pointer-events: none; }
+.splash-inner {
+  animation: splash-inner-out 0.25s ease-out 2.1s both;
+}
+@keyframes splash-out {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+@keyframes splash-inner-out {
+  to { opacity: 0; transform: translateY(-8px) scale(0.98); }
+}
+.splash-skip {
+  animation: splash-out 0.3s ease both !important;
+}
+.splash-skip .splash-inner {
+  animation: splash-inner-out 0.2s ease-out both !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -229,7 +242,7 @@ html {
    While the first-visit splash is playing, they wait for it to lift.
 --------------------------------------------------------------------------- */
 [data-splash="playing"] {
-  --splash-offset: 2.9s;
+  --splash-offset: 2.45s;
 }
 .splash-screen {
   --splash-offset: 0s;
@@ -268,7 +281,7 @@ html {
 
 /* ---------------------------------------------------------------------------
    Identity splash: percentage counter + a book that opens and turns its pages.
-   All CSS, so it runs from first paint. One timeline: counter 0 → 100 in 2.4s.
+   All CSS, so it runs from first paint. One timeline: counter 0 → 100 in 2.0s.
 --------------------------------------------------------------------------- */
 @property --sp-pct {
   syntax: "<integer>";
@@ -281,7 +294,7 @@ html {
 }
 .splash-pct {
   counter-reset: sp var(--sp-pct);
-  animation: sp-count 2.4s cubic-bezier(0.33, 0.8, 0.6, 1) both;
+  animation: sp-count 2s cubic-bezier(0.33, 0.8, 0.6, 1) both;
 }
 .splash-pct::before {
   content: counter(sp) "%";
@@ -307,13 +320,13 @@ html {
   height: 18px;
   border-radius: 50%;
   background: radial-gradient(ellipse at center, rgba(91, 42, 74, 0.28), transparent 70%);
-  animation: sb-shadow 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  animation: sb-shadow 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
 .sb__stage {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  animation: sb-center 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+  animation: sb-center 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
 /* keeps the open spread centred on the screen as the cover swings left */
 @keyframes sb-center {
@@ -354,13 +367,13 @@ html {
 }
 .sb__leaf {
   transform-origin: left center;
-  animation: sb-turn 0.7s cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation: sb-turn 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
 }
-.sb__leaf--1 { animation-delay: 0.7s; background-color: #f7eff4; }
-.sb__leaf--2 { animation-delay: 0.95s; background-color: #f2e8ee; }
-.sb__leaf--3 { animation-delay: 1.2s; background-color: #f7eff4; }
-.sb__leaf--4 { animation-delay: 1.45s; background-color: #f2e8ee; }
-.sb__leaf--5 { animation-delay: 1.7s; background-color: #f7eff4; }
+.sb__leaf--1 { animation-delay: 0.55s; background-color: #f7eff4; }
+.sb__leaf--2 { animation-delay: 0.75s; background-color: #f2e8ee; }
+.sb__leaf--3 { animation-delay: 0.95s; background-color: #f7eff4; }
+.sb__leaf--4 { animation-delay: 1.15s; background-color: #f2e8ee; }
+.sb__leaf--5 { animation-delay: 1.35s; background-color: #f7eff4; }
 @keyframes sb-turn {
   from { transform: rotateY(0deg); }
   to { transform: rotateY(-172deg); }
@@ -370,7 +383,7 @@ html {
   inset: 0;
   transform-origin: left center;
   transform-style: preserve-3d;
-  animation: sb-open 0.95s cubic-bezier(0.65, 0, 0.35, 1) 0.2s both;
+  animation: sb-open 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both;
 }
 @keyframes sb-open {
   from { transform: rotateY(0deg); }
@@ -420,4 +433,115 @@ html {
   .sb__shadow,
   .sb__cover,
   .sb__leaf { animation: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Scroll reveal — content is VISIBLE by default (server-rendered, no JS needed).
+   A tiny script marks only the blocks that start below the fold as "hidden" and
+   un-hides them as they scroll into view, so nothing is ever blank while loading.
+--------------------------------------------------------------------------- */
+.reveal {
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d, 0s);
+}
+.reveal[data-reveal="hidden"] {
+  opacity: 0;
+  transform: translateY(var(--ry, 28px));
+}
+.stagger > * {
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.7s ease;
+}
+.stagger[data-reveal="hidden"] > * {
+  opacity: 0;
+  transform: translateY(26px);
+  filter: blur(6px);
+}
+.stagger > :nth-child(1) { transition-delay: var(--d, 0s); }
+.stagger > :nth-child(2) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 1); }
+.stagger > :nth-child(3) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 2); }
+.stagger > :nth-child(4) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 3); }
+.stagger > :nth-child(5) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 4); }
+.stagger > :nth-child(6) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 5); }
+.stagger > :nth-child(7) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 6); }
+.stagger > :nth-child(n + 8) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 7); }
+
+.draw-line__bar {
+  transform-origin: left;
+  transition: transform 1.4s cubic-bezier(0.65, 0, 0.35, 1) 0.3s;
+}
+.draw-line[data-reveal="hidden"] .draw-line__bar {
+  transform: scaleX(0);
+}
+
+.magnetic {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* ---------------------------------------------------------------------------
+   Pointer-tilt 3D book + gentle float (TiltBook sets --rx/--ry/--gx/--gy)
+--------------------------------------------------------------------------- */
+.tilt-rotor {
+  transform-style: preserve-3d;
+  transform: rotateY(var(--ry, -20deg)) rotateX(var(--rx, 2deg));
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tilt-float {
+  transform-style: preserve-3d;
+  animation: tilt-float 6s ease-in-out infinite;
+}
+@keyframes tilt-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+.tilt-shadow--float {
+  animation: tilt-shadow 6s ease-in-out infinite;
+}
+@keyframes tilt-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 0.55; }
+  50% { transform: scaleX(0.86); opacity: 0.35; }
+}
+
+/* Success checkmark + confetti (thank-you page) */
+@keyframes burst-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+@keyframes burst-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes burst-fly {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 50px)) rotate(var(--r)) scale(1); }
+}
+.burst-badge {
+  animation: burst-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.burst-check {
+  stroke-dasharray: 1;
+  animation: burst-draw 0.5s ease-out 0.25s both;
+}
+.burst-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  animation: burst-fly 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .stagger > *,
+  .draw-line__bar,
+  .tilt-rotor {
+    transition-duration: 0.15s;
+    transition-delay: 0s;
+  }
+  .tilt-float,
+  .tilt-shadow--float,
+  .burst-piece {
+    animation: none;
+  }
+  .burst-piece { display: none; }
 }

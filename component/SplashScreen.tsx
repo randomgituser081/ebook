@@ -2,35 +2,34 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 const STORAGE_KEY = "mkx-splash";
-// If the counter animation can't be observed for some reason, never hold the page longer than this.
-const FALLBACK_MS = 4500;
 
 /**
  * Maekandex identity splash — the same white screen, logo and climbing percentage as the
  * Maekandex website — with a book above the logo that opens and turns its pages as the
  * number rises.
  *
- * The book and the counter are pure CSS (see globals.css), so they start at first paint,
- * before JavaScript loads. JS only waits for the counter to reach 100% and then lifts the
- * screen. Shown once per browser session; a tap or key press skips it.
+ * Everything, including lifting the screen away, is CSS (see globals.css), so it starts at
+ * first paint and ends on schedule even if the page's JavaScript is slow to arrive. JS only
+ * removes the element afterwards and handles skipping. Shown once per browser session; a
+ * tap or key press skips it.
  */
 export function SplashScreen() {
-  const reduce = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
-  const [exiting, setExiting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
-  const finish = useCallback(() => {
-    setExiting(true);
-    window.setTimeout(() => {
-      setVisible(false);
-      // Lets the page's own entrance (held while the splash plays) carry on.
-      document.documentElement.dataset.splash = "done";
-    }, 300);
+  const done = useCallback(() => {
+    setVisible(false);
+    // Lets anything waiting on the splash (page entrance delays) carry on.
+    document.documentElement.dataset.splash = "done";
   }, []);
+
+  const skip = useCallback(() => {
+    setSkipping(true);
+    window.setTimeout(done, 320);
+  }, [done]);
 
   useEffect(() => {
     if (document.documentElement.dataset.splash === "seen") {
@@ -41,70 +40,48 @@ export function SplashScreen() {
       sessionStorage.setItem(STORAGE_KEY, "1");
     } catch {}
 
-    let timer = window.setTimeout(finish, FALLBACK_MS);
-    const counter = rootRef.current?.querySelector(".splash-pct");
-    const animations = counter?.getAnimations?.() ?? [];
-    if (animations.length) {
-      // Finish as soon as the counter hits 100% (immediately if it already has, on a slow phone).
-      Promise.all(animations.map((a) => a.finished))
-        .then(() => {
-          window.clearTimeout(timer);
-          timer = window.setTimeout(finish, 250);
-        })
-        .catch(() => undefined);
-    }
+    // The CSS exit animation may already have finished before JS arrived (slow phone):
+    // `finished` resolves immediately in that case.
+    const out = rootRef.current?.getAnimations().find((a) => (a as CSSAnimation).animationName === "splash-out");
+    out?.finished.then(done).catch(() => undefined);
 
-    window.addEventListener("keydown", finish, { once: true });
+    const failsafe = window.setTimeout(done, 6000);
+    window.addEventListener("keydown", skip, { once: true });
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("keydown", finish);
+      window.clearTimeout(failsafe);
+      window.removeEventListener("keydown", skip);
     };
-  }, [finish]);
+  }, [done, skip]);
 
-  useEffect(() => {
-    document.documentElement.style.overflow = visible ? "hidden" : "";
-    return () => {
-      document.documentElement.style.overflow = "";
-    };
-  }, [visible]);
+  if (!visible) return null;
 
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          ref={rootRef}
-          key="splash"
-          role="status"
-          aria-busy="true"
-          aria-live="polite"
-          aria-label="Loading Maekandex Bookstore"
-          onClick={finish}
-          className="splash-screen fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center bg-white"
-          initial={false}
-          exit={{ opacity: 0 }}
-          transition={{ duration: reduce ? 0.25 : 0.45, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div
-            className={`flex flex-col items-center transition-all duration-300 ease-out ${
-              exiting ? "-translate-y-2 scale-[0.98] opacity-0" : ""
-            }`}
-          >
-            <SplashBook />
-            <Image
-              src="/branding/company_logo.png"
-              alt="Maekandex Communications Limited"
-              width={351}
-              height={86}
-              priority
-              className="h-auto w-55 object-contain sm:w-70 md:w-80"
-            />
-            <p className="mt-1 text-lg font-semibold tracking-wide tabular-nums text-[#0a0f2b] sm:text-base">
-              <span className="splash-pct" aria-hidden />
-            </p>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div
+      ref={rootRef}
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Loading Maekandex Bookstore"
+      onClick={skip}
+      className={`splash-screen fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center bg-white ${
+        skipping ? "splash-skip" : ""
+      }`}
+    >
+      <div className="splash-inner flex flex-col items-center">
+        <SplashBook />
+        <Image
+          src="/branding/company_logo.png"
+          alt="Maekandex Communications Limited"
+          width={351}
+          height={86}
+          priority
+          className="h-auto w-55 object-contain sm:w-70 md:w-80"
+        />
+        <p className="mt-1 text-lg font-semibold tracking-wide tabular-nums text-[#0a0f2b] sm:text-base">
+          <span className="splash-pct" aria-hidden />
+        </p>
+      </div>
+    </div>
   );
 }
 

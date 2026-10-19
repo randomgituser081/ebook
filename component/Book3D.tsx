@@ -3,15 +3,22 @@ import type { Book } from "@/lib/books";
 
 export type CoverBook = Pick<Book, "id" | "title" | "author" | "hasCover" | "updatedAt">;
 
-/** Front cover art: the uploaded image, or a designed fallback with the title. */
-export function CoverArt({ book }: { book: CoverBook }) {
+/**
+ * Front cover art: the uploaded image, or a designed fallback with the title.
+ * `width` is the size (in px) the cover is requested at — the server resizes it, so small
+ * thumbnails don't download full-size images.
+ */
+export function CoverArt({ book, width = 480 }: { book: CoverBook; width?: number }) {
   if (book.hasCover) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`/api/books/${book.id}/cover?v=${book.updatedAt}`}
+        src={`/api/books/${book.id}/cover?v=${book.updatedAt}&w=${width}`}
         alt={`Cover of ${book.title}`}
         className="h-full w-full object-cover"
+        width={width}
+        height={Math.round(width * (4 / 3))}
+        decoding="async"
         draggable={false}
       />
     );
@@ -39,12 +46,14 @@ export function Book3D({
   style,
   className = "",
   glare = false,
+  coverWidth = 480,
 }: {
   book: CoverBook;
   thickness?: number;
   style?: CSSProperties;
   className?: string;
   glare?: boolean;
+  coverWidth?: number;
 }) {
   return (
     <div className={`book3d [container-type:inline-size] ${className}`} style={{ ["--t" as string]: `${thickness}px`, ...style }}>
@@ -52,7 +61,7 @@ export function Book3D({
       <div className="book3d__pages" />
       <div className="book3d__face book3d__back" />
       <div className="book3d__face book3d__front">
-        <CoverArt book={book} />
+        <CoverArt book={book} width={coverWidth} />
         {glare && <div className="book3d__glare" />}
       </div>
     </div>

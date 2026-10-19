@@ -26,10 +26,10 @@ export function HeroBooks({ books }: { books: Book[] }) {
           className="book3d-scene absolute inset-0 opacity-70"
           style={{ transform: `translateX(${(i + 1) * -22}%) translateY(${(i + 1) * 4}%) scale(${0.86 - i * 0.06})`, zIndex: -1 - i }}
         >
-          <Book3D book={book} thickness={22} style={{ transform: `rotateY(${-32 + i * 4}deg) rotateX(6deg)` }} />
+          <Book3D book={book} thickness={22} coverWidth={360} style={{ transform: `rotateY(${-32 + i * 4}deg) rotateX(6deg)` }} />
         </div>
       ))}
-      <TiltBook book={front} thickness={30} />
+      <TiltBook book={front} thickness={30} coverWidth={600} />
     </div>
   );
 }
@@ -75,7 +75,7 @@ export function Spotlight({ book }: { book: Book }) {
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-magenta/10 blur-3xl" />
         <div className="relative grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
           <div className="mx-auto w-[60%] max-w-[300px] py-6 sm:w-[45%] lg:w-full">
-            <TiltBook book={book} thickness={28} intro={false} />
+            <TiltBook book={book} thickness={28} intro={false} coverWidth={600} />
           </div>
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-heading-deep px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-white">
@@ -124,6 +124,7 @@ export function BookGrid({ books }: { books: Book[] }) {
                 <Book3D
                   book={book}
                   thickness={22}
+                  coverWidth={360}
                   className="transition-transform duration-700 ease-[cubic-bezier(.22,1,.36,1)] [transform:rotateY(-30deg)_rotateX(6deg)] group-hover:[transform:rotateY(-12deg)_rotateX(2deg)_translateY(-10px)]"
                 />
               </div>

@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
 import { AlertCircle, Clock, Download, Mail } from "lucide-react";
 import { BookLoader } from "@/component/BookLoader";
 import { SuccessBurst } from "@/component/SuccessBurst";
@@ -75,12 +74,7 @@ function ThankYouContent() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="relative w-full max-w-lg rounded-[2rem] bg-white p-7 text-center shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7)] sm:p-10"
-    >
+    <div className="rise relative w-full max-w-lg rounded-[2rem] bg-white p-7 text-center shadow-[0_40px_90px_-30px_rgba(0,0,0,0.7)] sm:p-10" style={{ ["--rise-y" as string]: "30px" }}>
       {status === "paid" && (
         <>
           <SuccessBurst />
@@ -159,7 +153,7 @@ function ThankYouContent() {
           </Link>
         </>
       )}
-    </motion.div>
+    </div>
   );
 }
 

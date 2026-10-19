@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, type PointerEvent } from "react";
-import { motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { useRef, type CSSProperties, type PointerEvent } from "react";
 import { Book3D, type CoverBook } from "@/component/Book3D";
 
 /**
- * 3D book that floats gently and turns toward the pointer, with a moving sheen.
- * `restY` is the resting angle so the spine and page edge stay visible.
+ * 3D book that floats gently (CSS) and turns toward the mouse pointer, with a moving sheen.
+ * `restY` is the resting angle so the spine and page edge stay visible. On touch screens it
+ * simply floats. No animation library — pointer moves just update CSS variables.
  */
 export function TiltBook({
   book,
@@ -15,6 +15,7 @@ export function TiltBook({
   restY = -24,
   float = true,
   intro = true,
+  coverWidth = 720,
 }: {
   book: CoverBook;
   className?: string;
@@ -22,51 +23,47 @@ export function TiltBook({
   restY?: number;
   float?: boolean;
   intro?: boolean;
+  coverWidth?: number;
 }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const px = useMotionValue(0.5);
-  const py = useMotionValue(0.5);
-  const sx = useSpring(px, { stiffness: 120, damping: 18 });
-  const sy = useSpring(py, { stiffness: 120, damping: 18 });
-
-  const rotateY = useTransform(sx, [0, 1], [restY - 14, restY + 22]);
-  const rotateX = useTransform(sy, [0, 1], [12, -8]);
-  const gx = useTransform(sx, [0, 1], ["10%", "90%"]);
-  const gy = useTransform(sy, [0, 1], ["5%", "85%"]);
-  const glare = useMotionTemplate`${gx}`;
-  const glareY = useMotionTemplate`${gy}`;
+  const root = useRef<HTMLDivElement>(null);
 
   const onMove = (e: PointerEvent) => {
-    if (reduce || e.pointerType !== "mouse" || !ref.current) return;
-    const r = ref.current.getBoundingClientRect();
-    px.set((e.clientX - r.left) / r.width);
-    py.set((e.clientY - r.top) / r.height);
+    if (e.pointerType !== "mouse" || !root.current) return;
+    const r = root.current.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    const s = root.current.style;
+    s.setProperty("--ry", `${restY - 14 + px * 36}deg`);
+    s.setProperty("--rx", `${12 - py * 20}deg`);
+    s.setProperty("--gx", `${10 + px * 80}%`);
+    s.setProperty("--gy", `${5 + py * 80}%`);
   };
   const reset = () => {
-    px.set(0.5);
-    py.set(0.5);
+    const s = root.current?.style;
+    if (!s) return;
+    s.setProperty("--ry", `${restY + 4}deg`);
+    s.setProperty("--rx", "2deg");
   };
 
   return (
-    <div ref={ref} onPointerMove={onMove} onPointerLeave={reset} className={`book3d-scene relative ${className}`}>
+    <div
+      ref={root}
+      onPointerMove={onMove}
+      onPointerLeave={reset}
+      className={`book3d-scene relative ${className}`}
+      style={{ "--ry": `${restY + 4}deg`, "--rx": "2deg" } as CSSProperties}
+    >
       {/* soft floor shadow that breathes with the float */}
-      <motion.div
+      <div
         aria-hidden
-        className="absolute -bottom-[8%] left-[12%] h-[8%] w-[76%] rounded-[50%] bg-black/45 blur-xl"
-        animate={float && !reduce ? { scaleX: [1, 0.86, 1], opacity: [0.55, 0.35, 0.55] } : undefined}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className={`absolute -bottom-[8%] left-[12%] h-[8%] w-[76%] rounded-[50%] bg-black/45 blur-xl ${float ? "tilt-shadow--float" : ""}`}
       />
       <div className={intro ? "book-in" : undefined} style={{ transformStyle: "preserve-3d" }}>
-        <motion.div
-          animate={float && !reduce ? { y: [0, -14, 0] } : undefined}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          style={{ transformStyle: "preserve-3d" }}
-        >
-          <motion.div style={{ rotateY, rotateX, transformStyle: "preserve-3d", ["--gx" as string]: glare, ["--gy" as string]: glareY }}>
-            <Book3D book={book} thickness={thickness} glare />
-          </motion.div>
-        </motion.div>
+        <div className={float ? "tilt-float" : undefined} style={{ transformStyle: "preserve-3d" }}>
+          <div className="tilt-rotor">
+            <Book3D book={book} thickness={thickness} glare coverWidth={coverWidth} />
+          </div>
+        </div>
       </div>
     </div>
   );

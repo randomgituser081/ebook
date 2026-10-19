@@ -1,4 +1,5 @@
 // Server-only: validates the multipart form posted by the admin "add / edit book" page.
+import sharp from "sharp";
 import type { BookFiles, BookInput } from "@/lib/books";
 
 const MAX_PDF_BYTES = (Number(process.env.MAX_PDF_MB) || 100) * 1024 * 1024;
@@ -62,7 +63,17 @@ export async function parseBookForm(form: FormData, opts: { pdfRequired: boolean
     const bytes = Buffer.from(await cover.arrayBuffer());
     const type = coverType(bytes);
     if (!type) return { ok: false, error: "Cover must be a PNG, JPG or WEBP image." };
-    files.cover = { data: bytes, type };
+    // Store a web-sized WebP: phones never download a multi-megabyte upload.
+    try {
+      const data = await sharp(bytes, { failOn: "none" })
+        .rotate()
+        .resize({ width: 960, height: 1280, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+      files.cover = { data, type: "image/webp" };
+    } catch {
+      return { ok: false, error: "That image could not be read. Try a different PNG, JPG or WEBP file." };
+    }
   }
 
   return {
