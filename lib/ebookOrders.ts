@@ -6,10 +6,13 @@ import { sendEmail } from "@/lib/lenhub";
 import { resolvePayment } from "@/lib/nomba";
 import {
   consumeDownload as consumeOrderDownload,
+  claimResend,
   getOrder,
+  listPaidOrdersByEmail,
   listPendingRefs,
   markEmailed,
   markPaid,
+  releaseResends,
   saveCheckout,
   saveEmailIfMissing,
 } from "@/lib/orders";
@@ -23,6 +26,8 @@ const REF_PATTERN = /^MKX-BK-([a-z0-9]{3,16})-\d{13}-[A-Z0-9]{6}$/;
 // failed downloads, so a hard one-time limit would burn links for real buyers.
 const LINK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_DOWNLOADS = Number(process.env.EBOOK_MAX_DOWNLOADS) || 3;
+// How many times a buyer can ask for a fresh link to the same purchase (each gives a new set of downloads).
+export const MAX_RESENDS = Number(process.env.EBOOK_MAX_RESENDS) || 3;
 
 export function newOrderReference(bookId: string): string {
   const rand = randomBytes(4).toString("hex").toUpperCase().slice(0, 6);
@@ -107,6 +112,7 @@ function emailHtml(book: Book, downloadUrl: string): string {
   <p style="margin:28px 0"><a href="${downloadUrl}" style="background:#995982;color:#ffffff;text-decoration:none;padding:14px 26px;border-radius:999px;font-weight:bold;display:inline-block">Download your ebook</a></p>
   <p style="font-size:14px;line-height:1.6;color:#555">This personal link is valid for 7 days and works for up to ${MAX_DOWNLOADS} downloads, so please save the PDF once it opens.</p>
   <p style="font-size:14px;line-height:1.6;color:#555">If the button doesn't work, copy this address into your browser:<br><span style="word-break:break-all">${escapeHtml(downloadUrl)}</span></p>
+  <p style="font-size:14px;line-height:1.6;color:#555">Lost this email later? You can always get a new link at <a href="${new URL(downloadUrl).origin}/my-books" style="color:#a14f5b">${new URL(downloadUrl).origin}/my-books</a> using the email you paid with.</p>
   <p style="font-size:13px;color:#888;margin-top:32px">Maekandex Bookstore</p>
 </div>`;
 }
@@ -242,4 +248,73 @@ export async function reconcilePendingOrders(siteUrl: string): Promise<{ checked
     for (const [ref, at] of lastChecked) if (now - at > 25 * 60 * 60_000) lastChecked.delete(ref);
   }
   return { checked, settled };
+}
+
+// ---- "Email me my link again" ------------------------------------------------
+// A buyer who lost the email (or comes back another day) types the email they paid with.
+// We never show anything on screen — the new link only goes to that inbox, so knowing
+// someone's address isn't enough to get their book. Each purchase can be re-sent
+// MAX_RESENDS times; every re-send gives a fresh set of downloads and a fresh 7 days.
+
+function recoveryEmailHtml(items: Array<{ book: Book; url: string }>, blocked: number, siteUrl: string): string {
+  const rows = items
+    .map(
+      ({ book, url }) => `
+  <div style="border:1px solid #eadde5;border-radius:14px;padding:16px 18px;margin:14px 0">
+    <p style="margin:0 0 12px;font-size:16px;font-weight:bold;color:#5b2a4a">${escapeHtml(book.title)}</p>
+    <a href="${url}" style="background:#995982;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold;display:inline-block">Download</a>
+  </div>`,
+    )
+    .join("");
+  const note = blocked
+    ? `<p style="font-size:14px;line-height:1.6;color:#a14f5b">${blocked} other purchase${blocked > 1 ? "s have" : " has"} reached the limit of ${MAX_RESENDS} new links. Please contact us and we'll help.</p>`
+    : "";
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
+  <p style="font-size:16px;line-height:1.6">Here ${items.length > 1 ? "are your download links" : "is your download link"}, as requested.</p>${rows}${note}
+  <p style="font-size:14px;line-height:1.6;color:#555">Each link is valid for 7 days and works for up to ${MAX_DOWNLOADS} downloads. You can ask for a new link up to ${MAX_RESENDS} times per purchase at <a href="${siteUrl}/my-books" style="color:#a14f5b">${siteUrl}/my-books</a>.</p>
+  <p style="font-size:14px;line-height:1.6;color:#999">If you didn't ask for this, you can ignore this email — nobody else can use these links without your inbox.</p>
+  <p style="font-size:13px;color:#888;margin-top:32px">Maekandex Bookstore</p>
+</div>`;
+}
+
+function limitEmailHtml(siteUrl: string): string {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">
+  <p style="font-size:16px;line-height:1.6">You asked for a new download link, but your purchase has already had ${MAX_RESENDS} new links sent, which is the limit.</p>
+  <p style="font-size:15px;line-height:1.6">Please contact us at <a href="https://maekandex.com/contact-us" style="color:#a14f5b">maekandex.com/contact-us</a> and we'll sort it out. Mention the email you paid with.</p>
+  <p style="font-size:13px;color:#888;margin-top:32px">Maekandex Bookstore · ${siteUrl}</p>
+</div>`;
+}
+
+export async function recoverPurchases(email: string, siteUrl: string): Promise<void> {
+  const orders = await listPaidOrdersByEmail(email);
+  if (!orders.length) return; // nothing to send; the caller answers exactly the same way either way
+
+  const granted: Array<{ ref: string; book: Book }> = [];
+  let blocked = 0;
+  for (const order of orders) {
+    const book = await getBook(order.bookId);
+    if (!book) continue;
+    if (await claimResend(order.ref, MAX_RESENDS)) granted.push({ ref: order.ref, book });
+    else blocked++;
+  }
+  if (!granted.length && !blocked) return;
+
+  try {
+    await sendEmail({
+      recipient: email,
+      subject: granted.length ? "Your ebook download link" : "Your ebook download link — limit reached",
+      message: granted.length
+        ? recoveryEmailHtml(
+            granted.map(({ ref, book }) => ({ book, url: signedDownloadUrl(siteUrl, ref) })),
+            blocked,
+            siteUrl,
+          )
+        : limitEmailHtml(siteUrl),
+      greetings: "Hello",
+    });
+  } catch (error) {
+    // The email didn't go out, so don't count it against the buyer.
+    await releaseResends(granted.map((g) => g.ref));
+    throw error;
+  }
 }

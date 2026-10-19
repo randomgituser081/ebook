@@ -136,7 +136,10 @@ function ThankYouContent() {
             >
               Check again
             </button>
-            <Link href="/" className="text-sm font-semibold text-brand hover:underline">
+            <Link href="/my-books" className="text-sm font-semibold text-brand hover:underline">
+              Already paid before? Get your link by email
+            </Link>
+            <Link href="/" className="text-sm font-semibold text-gray-500 hover:underline">
               Didn&apos;t pay? Back to the bookstore
             </Link>
           </div>
@@ -151,9 +154,12 @@ function ThankYouContent() {
             This link is missing a valid payment reference. If you&apos;ve been charged, contact us and we&apos;ll help.
           </p>
           <Link
-            href="/"
+            href="/my-books"
             className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-heading-deep font-bold text-white"
           >
+            Get my download link by email
+          </Link>
+          <Link href="/" className="mt-4 inline-block text-sm font-semibold text-brand hover:underline">
             Back to the bookstore
           </Link>
         </>

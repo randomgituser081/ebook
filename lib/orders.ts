@@ -95,6 +95,37 @@ export async function markEmailed(ref: string, email: string): Promise<void> {
   ]);
 }
 
+/** Confirmed purchases made with this email (case-insensitive), newest first. */
+export async function listPaidOrdersByEmail(
+  email: string,
+): Promise<Array<{ ref: string; bookId: string; resends: number }>> {
+  const { rows } = await query<{ ref: string; book_id: string; resends: number }>(
+    `SELECT ref, book_id, resends FROM orders
+     WHERE paid_at IS NOT NULL AND book_id IS NOT NULL AND lower(email) = lower($1)
+     ORDER BY paid_at DESC LIMIT 20`,
+    [email],
+  );
+  return rows.map((r) => ({ ref: r.ref, bookId: r.book_id, resends: r.resends }));
+}
+
+/**
+ * Uses up one re-send for a purchase and gives its download allowance a fresh start.
+ * Atomic, so two quick requests can't both slip past the limit.
+ */
+export async function claimResend(ref: string, maxResends: number): Promise<boolean> {
+  const { rowCount } = await query(
+    "UPDATE orders SET resends = resends + 1, downloads = 0 WHERE ref = $1 AND paid_at IS NOT NULL AND resends < $2",
+    [ref, maxResends],
+  );
+  return rowCount > 0;
+}
+
+/** Gives re-sends back (used when the email couldn't be delivered, so the buyer isn't charged an attempt). */
+export async function releaseResends(refs: string[]): Promise<void> {
+  if (!refs.length) return;
+  await query("UPDATE orders SET resends = GREATEST(resends - 1, 0) WHERE ref = ANY($1)", [refs]);
+}
+
 /** Checkouts that were started but not yet confirmed as paid (oldest first within the window). */
 export async function listPendingRefs(
   minAgeMs: number,

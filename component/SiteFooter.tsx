@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CreditCard, Landmark, Mail, Smartphone } from "lucide-react";
+import { CreditCard, Landmark, LifeBuoy, Mail, Smartphone } from "lucide-react";
 
 export function SiteFooter() {
   return (
@@ -41,6 +41,12 @@ export function SiteFooter() {
             >
               <Mail className="size-4" /> Contact Maekandex
             </a>
+            <Link
+              href="/my-books"
+              className="mt-3 flex items-center gap-2 text-sm font-semibold text-white transition hover:text-academy-discount"
+            >
+              <LifeBuoy className="size-4" /> Lost your download? Find my purchase
+            </Link>
           </div>
         </div>
 

@@ -59,6 +59,13 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
       CREATE INDEX orders_paid_at_idx ON orders (paid_at DESC) WHERE paid_at IS NOT NULL;
     `,
   },
+  {
+    id: "002_resend_links",
+    sql: `
+      ALTER TABLE orders ADD COLUMN resends integer NOT NULL DEFAULT 0;
+      CREATE INDEX orders_email_idx ON orders (lower(email)) WHERE paid_at IS NOT NULL;
+    `,
+  },
 ];
 
 function createPool(): Pool {

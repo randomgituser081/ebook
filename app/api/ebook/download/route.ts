@@ -3,11 +3,12 @@ import { bookIdFromReference, checkDownloadLink, consumeDownload } from "@/lib/e
 
 export const runtime = "nodejs";
 
-function page(status: number, heading: string, body: string) {
+function page(status: number, heading: string, body: string, recover = false) {
   const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${heading}</title>
 <body style="font-family:Arial,sans-serif;max-width:480px;margin:15vh auto;padding:0 20px;color:#1a1a1a;text-align:center">
 <h1 style="color:#5b2a4a">${heading}</h1><p style="line-height:1.6;color:#555">${body}</p>
+${recover ? '<p><a href="/my-books" style="display:inline-block;background:#995982;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-weight:bold">Get a new download link</a></p>' : ""}
 <p><a href="/" style="color:#a14f5b">Back to the bookstore</a></p>`;
   return new Response(html, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
@@ -25,13 +26,14 @@ export async function GET(req: Request) {
 
   const link = checkDownloadLink(ref, params.get("exp"), params.get("sig"));
   if (link === "invalid") {
-    return page(403, "Invalid download link", "This link isn't valid. Please use the link from your purchase email.");
+    return page(403, "Invalid download link", "This link isn't valid. Please use the link from your purchase email, or get a new one.", true);
   }
   if (link === "expired") {
     return page(
       410,
       "This link has expired",
-      `Download links last 7 days. Contact us with your payment reference <strong>${ref}</strong> and we'll send a new one.`,
+      "Download links last 7 days. You can get a new one by email in a few seconds.",
+      true,
     );
   }
 
@@ -53,7 +55,8 @@ export async function GET(req: Request) {
     return page(
       410,
       "Download limit reached",
-      `This link has already been used the maximum number of times. Contact us with your payment reference <strong>${ref}</strong> and we'll help.`,
+      "This link has been used the maximum number of times. You can get a new one by email in a few seconds.",
+      true,
     );
   }
 

@@ -289,6 +289,12 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
                 </span>
               </div>
               <BuyForm bookId={book.id} priceNaira={book.priceNaira} />
+              <p className="mt-5 text-center text-sm text-gray-500">
+                Already bought this?{" "}
+                <Link href="/my-books" className="font-semibold text-brand hover:underline">
+                  Get your download link again
+                </Link>
+              </p>
             </div>
           </Reveal>
         </div>

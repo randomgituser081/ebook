@@ -37,6 +37,14 @@ Because the files are in the database too, backing up Postgres backs up everythi
 
 Download links last 7 days and work for 3 downloads (`EBOOK_MAX_DOWNLOADS`). No buyer logins.
 
+**Lost the email?** Buyers go to `/my-books`, enter the email they paid with, and a fresh link is emailed
+to that address (never shown on screen, and the answer is identical whether or not the email has a
+purchase). Each purchase can be re-sent 3 times (`EBOOK_MAX_RESENDS`); every re-send resets the
+downloads and gives a new 7 days. The form is rate-limited per IP and per email.
+
+**Payments Nomba doesn't send back:** the server also checks unconfirmed checkouts itself (see
+`lib/reconciler.ts`), so a paid order is confirmed and emailed even if the buyer never returns.
+
 ## Run locally
 
 ```
