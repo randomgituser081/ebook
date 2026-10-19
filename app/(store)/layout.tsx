@@ -1,3 +1,4 @@
+import { PendingPaymentBanner } from "@/component/PendingPaymentBanner";
 import { SplashScreen } from "@/component/SplashScreen";
 
 // Runs before first paint: returning visitors (this session) skip the intro with no flash;
@@ -12,6 +13,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         <style>{`.splash-screen{display:none}`}</style>
       </noscript>
       <SplashScreen />
+      <PendingPaymentBanner />
       {children}
     </>
   );

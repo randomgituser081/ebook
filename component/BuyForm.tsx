@@ -31,7 +31,9 @@ export function BuyForm({ bookId, priceNaira }: { bookId: string; priceNaira: nu
       }
 
       try {
+        // So the shop can offer "check my payment" if Nomba doesn't send the buyer back.
         localStorage.setItem("mkx-bookstore-last-ref", data.reference);
+        localStorage.setItem("mkx-bookstore-last-at", String(Date.now()));
       } catch {}
       window.location.href = data.checkoutLink;
     } catch {

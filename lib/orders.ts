@@ -95,6 +95,22 @@ export async function markEmailed(ref: string, email: string): Promise<void> {
   ]);
 }
 
+/** Checkouts that were started but not yet confirmed as paid (oldest first within the window). */
+export async function listPendingRefs(
+  minAgeMs: number,
+  maxAgeMs: number,
+  limit: number,
+): Promise<Array<{ ref: string; createdAt: number }>> {
+  const now = Date.now();
+  const { rows } = await query<{ ref: string; created_at: number }>(
+    `SELECT ref, created_at FROM orders
+     WHERE paid_at IS NULL AND book_id IS NOT NULL AND created_at BETWEEN $1 AND $2
+     ORDER BY created_at DESC LIMIT $3`,
+    [now - maxAgeMs, now - minAgeMs, limit],
+  );
+  return rows.map((r) => ({ ref: r.ref, createdAt: r.created_at }));
+}
+
 /** Atomically counts a download; false once `max` has been reached. */
 export async function consumeDownload(ref: string, max: number): Promise<boolean> {
   const { rowCount } = await query(

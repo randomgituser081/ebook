@@ -7,6 +7,7 @@ import { resolvePayment } from "@/lib/nomba";
 import {
   consumeDownload as consumeOrderDownload,
   getOrder,
+  listPendingRefs,
   markEmailed,
   markPaid,
   saveCheckout,
@@ -199,4 +200,46 @@ export function rememberOrder(
 /** Counts a download; false once the link has been used MAX_DOWNLOADS times. */
 export function consumeDownload(ref: string): Promise<boolean> {
   return consumeOrderDownload(ref, MAX_DOWNLOADS);
+}
+
+// ---- Reconciliation ---------------------------------------------------------
+// Nomba doesn't always send the buyer back to our site, and its payment webhook may point at
+// another service (the Nomba account is shared). So the server also checks unconfirmed
+// checkouts itself — often at first, then less and less — and settles any that were paid:
+// the sale is recorded and the download link emailed even if the buyer never returns.
+
+const lastChecked = new Map<string, number>();
+
+function checkEveryMs(ageMs: number): number {
+  if (ageMs < 10 * 60_000) return 25_000; // first 10 minutes: about every 30s
+  if (ageMs < 60 * 60_000) return 5 * 60_000; // then every 5 minutes for an hour
+  return 30 * 60_000; // then every 30 minutes, up to a day
+}
+
+export async function reconcilePendingOrders(siteUrl: string): Promise<{ checked: number; settled: number }> {
+  const pending = await listPendingRefs(15_000, 24 * 60 * 60_000, 30);
+  const now = Date.now();
+  let checked = 0;
+  let settled = 0;
+
+  for (const { ref, createdAt } of pending) {
+    if (!isEbookReference(ref)) continue;
+    if (now - (lastChecked.get(ref) ?? 0) < checkEveryMs(now - createdAt)) continue;
+    lastChecked.set(ref, now);
+    checked++;
+    try {
+      const result = await settleOrder(ref, siteUrl);
+      if (result.status === "paid") {
+        settled++;
+        lastChecked.delete(ref);
+      }
+    } catch (error) {
+      console.warn(`[reconcile] ${ref}:`, (error as Error).message);
+    }
+  }
+
+  if (lastChecked.size > 500) {
+    for (const [ref, at] of lastChecked) if (now - at > 25 * 60 * 60_000) lastChecked.delete(ref);
+  }
+  return { checked, settled };
 }

@@ -47,6 +47,10 @@ function ThankYouContent() {
             setDownloadUrl(data.downloadUrl);
             setEmailedTo(data.emailedTo ?? null);
             setBookTitle(data.bookTitle ?? "");
+            try {
+              localStorage.removeItem("mkx-bookstore-last-ref");
+              localStorage.removeItem("mkx-bookstore-last-at");
+            } catch {}
             setStatus("paid");
             return;
           }
@@ -120,8 +124,9 @@ function ThankYouContent() {
           <Clock className="mx-auto size-14 text-academy-discount" />
           <h1 className="mt-5 text-2xl font-black text-heading-deep">We haven&apos;t received your payment yet</h1>
           <p className="mt-3 text-base text-gray-600">
-            If you completed payment, it may still be processing. Check again in a moment, or contact us with your
-            reference: <span className="font-mono text-sm">{ref}</span>
+            If you completed payment, there&apos;s nothing else you need to do: we keep checking, and your download
+            link will be emailed to you as soon as the payment is confirmed. You can also check again below, or contact
+            us with your reference: <span className="font-mono text-sm">{ref}</span>
           </p>
           <div className="mt-8 flex flex-col gap-3">
             <button
