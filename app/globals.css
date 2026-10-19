@@ -545,3 +545,13 @@ html {
   }
   .burst-piece { display: none; }
 }
+
+/* Anchor jumps (#buy, #books…) land below the fixed header. */
+html {
+  scroll-padding-top: 6rem;
+}
+/* Clear keyboard focus, without outlines on mouse clicks. */
+:focus-visible {
+  outline: 2px solid var(--academy-discount);
+  outline-offset: 3px;
+}

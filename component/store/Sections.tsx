@@ -7,6 +7,8 @@ import { DrawLine } from "@/component/store/DrawLine";
 import type { Book } from "@/lib/books";
 import { formatNaira } from "@/lib/format";
 
+const isNew = (book: Book) => Date.now() - book.createdAt < 30 * 24 * 60 * 60 * 1000;
+
 /** Up to three latest books, fanned out; the front one is interactive. */
 export function HeroBooks({ books }: { books: Book[] }) {
   const [front, ...rest] = books.slice(0, 3);
@@ -81,6 +83,11 @@ export function Spotlight({ book }: { book: Book }) {
             <span className="inline-flex items-center gap-2 rounded-full bg-heading-deep px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-white">
               <Sparkles className="size-3.5 text-academy-discount" /> Featured
             </span>
+            {isNew(book) && (
+              <span className="ml-2 inline-flex rounded-full bg-academy-discount px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-academy-discount-fg">
+                New
+              </span>
+            )}
             <h3 className="mt-5 text-3xl font-black leading-tight text-heading-deep sm:text-5xl">{book.title}</h3>
             {book.author && <p className="mt-2 text-base font-semibold text-brand">by {book.author}</p>}
             {book.subtitle && <p className="mt-4 max-w-xl text-lg leading-relaxed text-gray-600">{book.subtitle}</p>}
@@ -119,6 +126,11 @@ export function BookGrid({ books }: { books: Book[] }) {
             className="group flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-white ring-1 ring-black/5 transition duration-500 hover:-translate-y-1.5 hover:shadow-[0_30px_60px_-30px_rgba(91,42,74,0.5)]"
           >
             <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f7eef3] to-[#efe1ea] px-10 pb-10 pt-12">
+              {isNew(book) && (
+                <span className="absolute left-4 top-4 z-10 rounded-full bg-academy-discount px-2.5 py-1 text-[11px] font-black uppercase tracking-wider text-academy-discount-fg shadow">
+                  New
+                </span>
+              )}
               <div className="absolute -bottom-16 left-1/2 h-32 w-3/4 -translate-x-1/2 rounded-full bg-heading-deep/15 blur-2xl transition duration-500 group-hover:bg-heading-deep/25" />
               <div className="book3d-scene w-[56%]">
                 <Book3D

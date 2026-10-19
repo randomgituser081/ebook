@@ -16,6 +16,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.SITE_URL || "https://bookstore.maekandex.com"),
+  twitter: { card: "summary_large_image" },
   title: {
     default: "Maekandex Bookstore",
     template: "%s | Maekandex Bookstore",

@@ -19,6 +19,7 @@ import { BuyForm } from "@/component/BuyForm";
 import { Magnetic, Reveal, ScrollProgress, Stagger, StaggerItem } from "@/component/motion";
 import { Rise, TextReveal } from "@/component/TextReveal";
 import { SiteFooter } from "@/component/SiteFooter";
+import { ShareBook } from "@/component/ShareBook";
 import { SiteHeader } from "@/component/SiteHeader";
 import { MobileBuyBar } from "@/component/store/MobileBuyBar";
 import { TiltBook } from "@/component/TiltBook";
@@ -164,6 +165,10 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
                     );
                   })}
               </div>
+              <ShareBook
+                title={book.title}
+                url={`${(process.env.SITE_URL || "https://bookstore.maekandex.com").replace(/\/+$/, "")}/books/${book.slug}`}
+              />
             </Rise>
           </div>
 
