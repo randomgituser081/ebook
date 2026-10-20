@@ -66,6 +66,12 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
       CREATE INDEX orders_email_idx ON orders (lower(email)) WHERE paid_at IS NOT NULL;
     `,
   },
+  {
+    id: "003_order_book_title",
+    sql: `
+      ALTER TABLE orders ADD COLUMN book_title text;
+    `,
+  },
 ];
 
 function createPool(): Pool {

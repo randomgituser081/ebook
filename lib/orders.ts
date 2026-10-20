@@ -13,6 +13,8 @@ export type OrderRecord = {
   paidAt?: number;
   emailedAt?: number;
   downloads: number;
+  /** Title saved when the book was deleted (so the sales record still reads properly). */
+  bookTitle?: string;
 };
 
 type OrderRow = {
@@ -25,6 +27,7 @@ type OrderRow = {
   paid_at: number | null;
   emailed_at: number | null;
   downloads: number;
+  book_title: string | null;
 };
 
 function toOrder(row: OrderRow): OrderRecord {
@@ -38,6 +41,7 @@ function toOrder(row: OrderRow): OrderRecord {
     paidAt: row.paid_at ?? undefined,
     emailedAt: row.emailed_at ?? undefined,
     downloads: row.downloads,
+    bookTitle: row.book_title ?? undefined,
   };
 }
 

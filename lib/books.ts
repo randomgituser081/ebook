@@ -228,3 +228,22 @@ export async function updateBook(id: string, input: BookInput, files: BookFiles 
   await loadCatalogue();
   return (await getBook(id)) ?? null;
 }
+
+/**
+ * Deletes a book, its PDF and its cover. The title is first copied onto the book's orders, so the
+ * sales record keeps reading properly. Returns how many confirmed sales the book had.
+ */
+export async function deleteBook(id: string): Promise<{ deleted: boolean; sales: number }> {
+  const sales = await withTransaction(async (client) => {
+    const found = await client.query("SELECT title FROM books WHERE id = $1 FOR UPDATE", [id]);
+    if (!found.rowCount) return null;
+    const orders = await client.query("UPDATE orders SET book_title = $2 WHERE book_id = $1 RETURNING paid_at", [
+      id,
+      found.rows[0].title,
+    ]);
+    await client.query("DELETE FROM books WHERE id = $1", [id]); // book_files goes with it (ON DELETE CASCADE)
+    return orders.rows.filter((r: { paid_at: number | null }) => r.paid_at).length;
+  });
+  await loadCatalogue();
+  return sales === null ? { deleted: false, sales: 0 } : { deleted: true, sales };
+}

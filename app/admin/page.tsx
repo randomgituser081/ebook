@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/component/admin/AdminNav";
+import { DeleteBookButton } from "@/component/admin/DeleteBookButton";
 import { adminEnabled, isAdmin } from "@/lib/adminAuth";
 import { listBooks } from "@/lib/books";
 import { listOrders } from "@/lib/orders";
@@ -112,6 +113,7 @@ export default async function AdminOverviewPage() {
                         <Link href={`/admin/books/${book.id}`} className="font-semibold text-brand hover:underline">
                           Edit
                         </Link>
+                        <DeleteBookButton id={book.id} title={book.title} sold={stats.copies} />
                       </td>
                     </tr>
                   );
@@ -151,7 +153,7 @@ export default async function AdminOverviewPage() {
                   {sales.map((o) => (
                     <tr key={o.ref} className="border-b border-black/5 last:border-0">
                       <td className="whitespace-nowrap px-5 py-4 text-gray-600">{dateFormatter.format(o.paidAt)}</td>
-                      <td className="px-5 py-4 font-semibold text-heading-deep">{titles.get(o.bookId ?? "") ?? "—"}</td>
+                      <td className="px-5 py-4 font-semibold text-heading-deep">{titles.get(o.bookId ?? "") ?? o.bookTitle ?? "—"}</td>
                       <td className="px-5 py-4">
                         <div>{o.name ?? "—"}</div>
                         <div className="text-xs text-gray-500">{o.email ?? ""}</div>

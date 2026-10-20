@@ -22,7 +22,7 @@ export async function GET() {
     rows.push([
       new Date(o.paidAt!).toISOString(),
       o.ref,
-      titles.get(o.bookId ?? "") ?? o.bookId ?? "",
+      titles.get(o.bookId ?? "") ?? o.bookTitle ?? o.bookId ?? "",
       o.name ?? "",
       o.email ?? "",
       String(o.amountNaira ?? ""),

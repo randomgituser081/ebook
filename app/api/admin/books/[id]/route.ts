@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/adminAuth";
-import { updateBook } from "@/lib/books";
+import { deleteBook, updateBook } from "@/lib/books";
 import { parseBookForm } from "@/lib/bookForm";
 
 export const runtime = "nodejs";
@@ -18,4 +18,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const book = await updateBook(id, parsed.input, parsed.files);
   if (!book) return NextResponse.json({ ok: false, error: "Book not found." }, { status: 404 });
   return NextResponse.json({ ok: true, id: book.id, slug: book.slug });
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await isAdmin())) return NextResponse.json({ ok: false, error: "Not signed in." }, { status: 401 });
+
+  const { id } = await params;
+  const result = await deleteBook(id);
+  if (!result.deleted) return NextResponse.json({ ok: false, error: "Book not found." }, { status: 404 });
+  return NextResponse.json({ ok: true, sales: result.sales });
 }
