@@ -436,46 +436,31 @@ html {
 }
 
 /* ---------------------------------------------------------------------------
-   Scroll reveal — content is VISIBLE by default (server-rendered, no JS needed).
-   A tiny script marks only the blocks that start below the fold as "hidden" and
-   un-hides them as they scroll into view, so nothing is ever blank while loading.
+   Scroll reveal — CSS only. Content is always visible; the fade-up is applied ONLY where the
+   browser supports scroll-driven animations, and never to reduced-motion users.
 --------------------------------------------------------------------------- */
-.reveal {
-  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: var(--d, 0s);
+/* Content is never hidden: blocks only ease up a little as they scroll into view. */
+@keyframes reveal-up {
+  from { transform: translateY(var(--ry, 28px)); }
+  to { transform: none; }
 }
-.reveal[data-reveal="hidden"] {
-  opacity: 0;
-  transform: translateY(var(--ry, 28px));
-}
-.stagger > * {
-  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.7s ease;
-}
-.stagger[data-reveal="hidden"] > * {
-  opacity: 0;
-  transform: translateY(26px);
-  filter: blur(6px);
-}
-.stagger > :nth-child(1) { transition-delay: var(--d, 0s); }
-.stagger > :nth-child(2) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 1); }
-.stagger > :nth-child(3) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 2); }
-.stagger > :nth-child(4) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 3); }
-.stagger > :nth-child(5) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 4); }
-.stagger > :nth-child(6) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 5); }
-.stagger > :nth-child(7) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 6); }
-.stagger > :nth-child(n + 8) { transition-delay: calc(var(--d, 0s) + var(--g, 0.08s) * 7); }
-
-.draw-line__bar {
-  transform-origin: left;
-  transition: transform 1.4s cubic-bezier(0.65, 0, 0.35, 1) 0.3s;
-}
-.draw-line[data-reveal="hidden"] .draw-line__bar {
-  transform: scaleX(0);
-}
-
-.magnetic {
-  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal-view {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+    .stagger-view > * {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+    .stagger-view > :nth-child(2) { animation-range: entry 4% cover 34%; }
+    .stagger-view > :nth-child(3) { animation-range: entry 8% cover 38%; }
+    .stagger-view > :nth-child(4) { animation-range: entry 12% cover 42%; }
+    .stagger-view > :nth-child(n + 5) { animation-range: entry 16% cover 46%; }
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -531,9 +516,6 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .stagger > *,
-  .draw-line__bar,
   .tilt-rotor {
     transition-duration: 0.15s;
     transition-delay: 0s;

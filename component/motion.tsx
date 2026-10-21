@@ -3,35 +3,12 @@
 import { useEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 
 /**
- * Scroll-reveal without a library. Content is visible in the server-rendered HTML; after
- * hydration, only blocks that start BELOW the fold are marked data-reveal="hidden" and are
- * un-hidden (with a CSS transition) as they scroll into view. Blocks already on screen are
- * left alone, so there is never a flash and never a blank page while scripts load.
+ * Scroll effects are pure CSS (see "Scroll reveal" in globals.css). Content is ALWAYS visible in
+ * the HTML; the fade-up only plays in browsers that support scroll-driven animations, so a phone
+ * that can't run them just shows everything straight away. Nothing depends on JavaScript.
  */
-export function useReveal<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (el.getBoundingClientRect().top < window.innerHeight * 0.95) return;
 
-    el.dataset.reveal = "hidden";
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          delete el.dataset.reveal;
-          io.disconnect();
-        }
-      },
-      { rootMargin: "0px 0px -8% 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return ref;
-}
-
-/** Fades/slides a block in when it scrolls into view. */
+/** Fades/slides a block in as it scrolls into view (where supported). */
 export function Reveal({
   children,
   className = "",
@@ -43,15 +20,14 @@ export function Reveal({
   delay?: number;
   y?: number;
 }) {
-  const ref = useReveal<HTMLDivElement>();
   return (
-    <div ref={ref} className={`reveal ${className}`} style={{ "--d": `${delay}s`, "--ry": `${y}px` } as CSSProperties}>
+    <div className={`reveal-view ${className}`} style={{ "--ry": `${y}px`, "--d": `${delay}s` } as CSSProperties}>
       {children}
     </div>
   );
 }
 
-/** Direct children (wrap each in StaggerItem) animate in one after another. */
+/** Direct children (wrap each in StaggerItem) each fade in as they scroll into view. */
 export function Stagger({
   children,
   className = "",
@@ -63,9 +39,8 @@ export function Stagger({
   gap?: number;
   delay?: number;
 }) {
-  const ref = useReveal<HTMLDivElement>();
   return (
-    <div ref={ref} className={`stagger ${className}`} style={{ "--g": `${gap}s`, "--d": `${delay}s` } as CSSProperties}>
+    <div className={`stagger-view ${className}`} style={{ "--g": `${gap}s`, "--d": `${delay}s` } as CSSProperties}>
       {children}
     </div>
   );
